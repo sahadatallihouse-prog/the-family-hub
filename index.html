@@ -36,7 +36,22 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
 
 
 .approved-toolbar{position:fixed;right:20px;bottom:20px;z-index:80;display:flex;justify-content:flex-end;margin:0;filter:drop-shadow(0 8px 16px rgba(39,51,47,.18))}.approved-toggle{max-width:min(280px,calc(100vw - 32px))}.approved-toggle{display:flex;align-items:center;gap:10px;border:1px solid #d7dfd5;background:#fffefa;color:var(--ink);border-radius:15px;padding:12px 20px;box-shadow:var(--shadow);font-weight:850;font-size:14px}.approved-toggle .approved-icon{width:30px;height:30px;border-radius:10px;background:var(--sage2);display:grid;place-items:center}.approved-toggle .approved-hint{font-size:11px;color:var(--muted);font-weight:600}.approved-toggle .approved-arrow{color:var(--green);font-size:16px;margin-left:4px}.approved-panel{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.approved-panel[hidden]{display:none}
-.video-manager{grid-column:1/-1}.video-form{display:grid;grid-template-columns:1.1fr 1.2fr 1.6fr .9fr .9fr auto;gap:8px;margin:12px 0}.video-form input,.video-form select{min-width:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:white;font-size:12px}.video-row{display:flex;align-items:center;gap:10px;padding:10px;background:#f8f8f3;border-radius:12px;margin:7px 0;font-size:12px}.video-row strong{flex:1}.video-row small{color:var(--muted)}.video-row button{border:0;background:transparent;color:#8a554d;font-weight:800}@media(max-width:850px){.video-form{grid-template-columns:1fr 1fr}.video-form button{min-height:40px}.approved-panel{grid-template-columns:1fr}}</style>
+.video-manager{grid-column:1/-1}.video-form{display:grid;grid-template-columns:1.1fr 1.2fr 1.6fr .9fr .9fr auto;gap:8px;margin:12px 0}.video-form input,.video-form select{min-width:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:white;font-size:12px}.video-row{display:flex;align-items:center;gap:10px;padding:10px;background:#f8f8f3;border-radius:12px;margin:7px 0;font-size:12px}.video-row strong{flex:1}.video-row small{color:var(--muted)}.video-row button{border:0;background:transparent;color:#8a554d;font-weight:800}@media(max-width:850px){.video-form{grid-template-columns:1fr 1fr}.video-form button{min-height:40px}.approved-panel{grid-template-columns:1fr}}
+.deal-button{width:100%;margin-top:12px;border:0;border-radius:12px;background:#557565;color:#fff;padding:12px 14px;font-weight:850;font-size:13px;box-shadow:0 5px 14px rgba(39,51,47,.12)}
+.deal-button:disabled{opacity:.45;cursor:not-allowed}
+.deal-overlay{position:fixed;inset:0;z-index:120;background:rgba(25,35,30,.48);display:none;place-items:center;padding:16px}
+.deal-overlay.open{display:grid}
+.deal-modal{width:min(620px,100%);max-height:85vh;overflow:auto;background:#fffefa;border-radius:20px;padding:20px;box-shadow:0 18px 55px rgba(0,0,0,.2)}
+.deal-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.deal-modal-head h2{margin:0;font-size:20px}
+.deal-close{border:0;background:#edf2e9;border-radius:10px;padding:8px 12px;font-weight:800}
+.deal-note{font-size:12px;line-height:1.5;color:#718078;margin:8px 0 14px}
+.deal-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #e7e6dd}
+.deal-row strong{font-size:13px;flex:1}
+.deal-search{border:0;border-radius:10px;background:#557565;color:white;padding:9px 12px;font-size:11px;font-weight:800;white-space:nowrap}
+.deal-flyers{display:inline-block;margin:0 0 12px;color:#557565;font-size:12px;font-weight:800;text-decoration:underline}
+
+</style>
 </head>
 <body>
 <div id="loginGate"><div class="loginCard"><div style="font-size:42px">🏡</div><div class="eyebrow">One home · one team</div><h2>Family Hub Login</h2><p>Sign in with the family account to manage everyone's tasks.</p><form id="loginForm"><input id="loginEmail" type="email" placeholder="Email address" autocomplete="username" required><input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password" required><button type="submit">Sign In</button></form><div id="loginError"></div></div></div>
@@ -72,11 +87,22 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
   <div class="cardhead"><div class="cardtitle"><span class="ico">🛒</span> Shopping List</div><button class="linkbtn" id="clearShopping">Clear checked</button></div>
   <div class="shopping-list" id="shopping"></div>
   <div class="addrow"><input id="shopInput" placeholder="Add something to buy…" maxlength="70"><button class="addbtn" id="addShop" aria-label="Add shopping item">+</button></div>
+  <button class="deal-button" id="findDeals" type="button">🔎 Find the Deals</button>
   <div class="cardhead" style="margin-top:19px"><div class="cardtitle"><span class="ico">📌</span> Family Notes</div><span class="subtle">Saved on this tablet</span></div>
   <textarea class="notes" id="notes" placeholder="Leave a note for everyone…"></textarea>
  </section>
 
- <div class="approved-panel" id="approvedPanel" hidden>
+ 
+<div class="deal-overlay" id="dealOverlay" role="dialog" aria-modal="true" aria-labelledby="dealTitle">
+ <div class="deal-modal">
+  <div class="deal-modal-head"><h2 id="dealTitle">🛒 Find deals near Windsor</h2><button class="deal-close" id="closeDeals" type="button">Close ✕</button></div>
+  <p class="deal-note">Choose an item to search current flyers and offers. Searches include FreshCo, Food Basics, Sobeys, Metro and other retailers that may have a better price. Check package size, dates, and availability before making a trip.</p>
+  <a class="deal-flyers" href="https://flipp.com/amp/en-ca/windsor-on/flyers?reebee=true" target="_blank" rel="noopener">Browse all Windsor flyers on Flipp ↗</a>
+  <div id="dealItems"></div>
+ </div>
+</div>
+
+<div class="approved-panel" id="approvedPanel" hidden>
  <section class="card video-manager">
   <div class="cardhead"><div class="cardtitle"><span class="ico">🎬</span> Lorenzo's Video Library</div><span class="subtle">Parent-approved videos</span></div>
   <p class="subtle">Add a video to one of Lorenzo's three Explorer categories. Choose the dates it should be available.</p>
@@ -157,7 +183,26 @@ function renderShopping(){const el=document.getElementById('shopping');el.innerH
 function render(){renderPeople();renderAgenda();renderDailySchedule();renderTasks();renderMeals();renderShopping();document.getElementById('notes').value=state.notes||''}
 async function addTask(){let x=document.getElementById('taskInput'),v=x.value.trim();if(!v)return;const child=document.getElementById('taskChild').value;const {error}=await db.from('family_tasks').insert({owner_id:currentUser.id,child,title:v,is_completed:false});if(error){alert('Could not add task: '+error.message);return}x.value='';await loadTasks()}
 function addShop(){let x=document.getElementById('shopInput'),v=x.value.trim();if(!v)return;state.shopping.push({text:v,checked:false});x.value='';save();renderShopping()}
-document.getElementById('addTask').onclick=addTask;document.getElementById('taskInput').addEventListener('keydown',e=>{if(e.key==='Enter')addTask()});document.getElementById('addShop').onclick=addShop;document.getElementById('shopInput').addEventListener('keydown',e=>{if(e.key==='Enter')addShop()});
+function renderDealItems(){
+ const el=document.getElementById('dealItems');
+ const items=state.shopping.map((item,index)=>({...item,index})).filter(item=>!item.checked);
+ if(!items.length){el.innerHTML='<div class="empty">Your list has no unchecked items to search. Add an item or uncheck a completed one.</div>';return}
+ el.innerHTML=items.map(item=>'<div class="deal-row"><strong>'+esc(item.text)+'</strong><button class="deal-search" type="button" data-deal-search="'+item.index+'">Search deals ↗</button></div>').join('');
+ el.querySelectorAll('[data-deal-search]').forEach(button=>button.onclick=()=>{
+  const item=state.shopping[Number(button.dataset.dealSearch)];
+  if(!item)return;
+  const query='"'+item.text+'" sale flyer Windsor Ontario FreshCo Food Basics Sobeys Metro Walmart No Frills Costco Giant Tiger';
+  window.open('https://www.google.com/search?q='+encodeURIComponent(query),'_blank','noopener');
+ });
+}
+function openDealFinder(){renderDealItems();document.getElementById('dealOverlay').classList.add('open')}
+function closeDealFinder(){document.getElementById('dealOverlay').classList.remove('open')}
+
+document.getElementById('addTask').onclick=addTask;document.getElementById('taskInput').addEventListener('keydown',e=>{if(e.key==='Enter')addTask()});document.getElementById('addShop').onclick=addShop;
+document.getElementById('findDeals').onclick=openDealFinder;
+document.getElementById('closeDeals').onclick=closeDealFinder;
+document.getElementById('dealOverlay').addEventListener('click',e=>{if(e.target.id==='dealOverlay')closeDealFinder()});
+document.getElementById('shopInput').addEventListener('keydown',e=>{if(e.key==='Enter')addShop()});
 document.getElementById('eventDate').value=localDateKey();
 document.getElementById('eventDate').min=localDateKey();
 document.getElementById('scheduleDate').value=localDateKey();
