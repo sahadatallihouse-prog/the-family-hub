@@ -26,9 +26,18 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
 .footer{display:flex;justify-content:space-between;align-items:center;color:#8a948d;font-size:10px;padding:16px 4px 0}.linkbtn{border:0;background:transparent;color:var(--green);font-size:11px;font-weight:750;padding:5px}.empty{font-size:11px;color:#9aa49c;padding:8px 2px}
 @media(max-width:1050px){.grid{grid-template-columns:1fr 1fr}.shell{padding:18px}.topbar{align-items:flex-start}}
 @media(max-width:650px){.shell{padding:13px}.topbar{flex-wrap:wrap}.topright{width:100%;justify-content:space-between}.clock{text-align:left}.greeting{padding:17px}.greeting h2{font-size:21px}.grid{grid-template-columns:1fr}.people{grid-template-columns:repeat(3,1fr)}.weather{margin-left:auto}}
+
+#loginGate{position:fixed;inset:0;z-index:99;background:linear-gradient(135deg,#e2ebe0,#f4ead4);display:grid;place-items:center;padding:20px}
+.loginCard{width:min(420px,100%);background:#fffefa;border:1px solid #e7e6dd;border-radius:24px;padding:28px;box-shadow:0 15px 45px rgba(39,51,47,.14);text-align:center}
+.loginCard h2{margin:8px 0;font-size:25px}.loginCard p{color:#718078;font-size:13px}
+.loginCard input{display:block;width:100%;padding:13px;margin:10px 0;border:1px solid #e7e6dd;border-radius:11px;font:inherit}
+.loginCard button{width:100%;padding:13px;border:0;border-radius:11px;background:#557565;color:white;font-weight:800;font:inherit;cursor:pointer}
+#loginError{color:#a33;font-size:12px;min-height:18px;margin-top:10px}
+
 </style>
 </head>
 <body>
+<div id="loginGate"><div class="loginCard"><div style="font-size:42px">🏡</div><div class="eyebrow">One home · one team</div><h2>Family Hub Login</h2><p>Sign in with the family account to manage everyone's tasks.</p><form id="loginForm"><input id="loginEmail" type="email" placeholder="Email address" autocomplete="username" required><input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password" required><button type="submit">Sign In</button></form><div id="loginError"></div></div></div>
 <div class="shell">
 <header class="topbar">
  <div class="brand"><div class="brandmark">🏡</div><div><div class="eyebrow">One home · one team</div><h1>THE FAMILY HUB</h1></div></div>
@@ -45,7 +54,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
  <section class="card">
   <div class="cardhead"><div class="cardtitle"><span class="ico">✨</span> Family To-Do</div><span class="subtle" id="taskCount">0 completed</span></div>
   <div class="task-list" id="tasks"></div>
-  <div class="addrow"><input id="taskInput" placeholder="Add a chore or reminder…" maxlength="90"><button class="addbtn" id="addTask" aria-label="Add task">+</button></div>
+  <div class="addrow"><input id="taskInput" placeholder="Add a chore or reminder…" maxlength="90"><select id="taskChild" aria-label="Assign task to" style="max-width:125px;border:1px solid var(--line);border-radius:10px;padding:7px;font-size:11px;background:white"><option value="Evangeline">Evangeline</option><option value="Lorenzo">Lorenzo</option></select><button class="addbtn" id="addTask" aria-label="Add task">+</button></div>
   <div class="cardhead" style="margin-top:19px"><div class="cardtitle"><span class="ico">🍽️</span> This Week's Meals</div><span class="subtle">Tap a meal to edit</span></div>
   <div class="meals" id="meals"></div>
  </section>
@@ -57,7 +66,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
   <textarea class="notes" id="notes" placeholder="Leave a note for everyone…"></textarea>
  </section>
 </main>
-<footer class="footer"><span>THE FAMILY HUB · Made for our home</span><span>Changes save automatically on this device</span></footer>
+<footer class="footer"><span>THE FAMILY HUB · Made for our home</span><span>Tasks sync across family devices</span></footer>
 </div>
 <script>
 const KEY='the_family_hub_v1';
@@ -70,15 +79,16 @@ const defaults={
  notes:''
 };
 let state;try{state={...defaults,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){state=JSON.parse(JSON.stringify(defaults))}
+let db=null,currentUser=null; const SUPABASE_URL='https://wadlanikeoirzvjutokn.supabase.co'; const SUPABASE_KEY='sb_publishable_j1b897taWTMPsot0TzkEAg_fhJQjNWp';
 function save(){localStorage.setItem(KEY,JSON.stringify(state))}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function renderPeople(){document.getElementById('people').innerHTML=state.people.map(p=>'<div class="person"><div class="avatar">'+esc(p.emoji)+'</div><strong>'+esc(p.name)+'</strong><span>'+esc(p.role)+'</span></div>').join('')}
 function renderAgenda(){const el=document.getElementById('agenda');el.innerHTML=state.events.length?state.events.map((e,i)=>'<div class="agenda-item"><div class="agenda-time">'+esc(e.time)+'</div><div class="agenda-text">'+esc(e.text)+'</div><div class="agenda-who">'+esc(e.who||'Family')+'</div><button class="linkbtn" data-event="'+i+'" aria-label="Remove event">×</button></div>').join(''):'<div class="empty">Nothing planned yet. Add an event above.</div>';el.querySelectorAll('[data-event]').forEach(b=>b.onclick=()=>{state.events.splice(+b.dataset.event,1);save();renderAgenda()})}
-function renderTasks(){const el=document.getElementById('tasks');el.innerHTML=state.tasks.length?state.tasks.map((t,i)=>'<div class="task '+(t.done?'done':'')+'"><input type="checkbox" data-task="'+i+'" '+(t.done?'checked':'')+'><label>'+esc(t.text)+'</label><span class="tag">'+esc(t.who||'Home')+'</span><button class="linkbtn" data-del-task="'+i+'" aria-label="Delete task">×</button></div>').join(''):'<div class="empty">All clear! Add a task whenever you need.</div>';el.querySelectorAll('[data-task]').forEach(x=>x.onchange=()=>{state.tasks[+x.dataset.task].done=x.checked;save();renderTasks()});el.querySelectorAll('[data-del-task]').forEach(x=>x.onclick=()=>{state.tasks.splice(+x.dataset.delTask,1);save();renderTasks()});let done=state.tasks.filter(t=>t.done).length;document.getElementById('taskCount').textContent=done+' of '+state.tasks.length+' done'}
+function renderTasks(){const el=document.getElementById('tasks');el.innerHTML=state.tasks.length?state.tasks.map(t=>'<div class="task '+(t.is_completed?'done':'')+'"><input type="checkbox" data-task="'+esc(t.id)+'" '+(t.is_completed?'checked':'')+'><label>'+esc(t.title)+'</label><span class="tag">'+esc(t.child)+'</span><button class="linkbtn" data-del-task="'+esc(t.id)+'" aria-label="Delete task">×</button></div>').join(''):'<div class="empty">No shared tasks yet. Add one for Evangeline or Lorenzo.</div>';el.querySelectorAll('[data-task]').forEach(x=>x.onchange=async()=>{const {error}=await db.from('family_tasks').update({is_completed:x.checked}).eq('id',x.dataset.task).eq('owner_id',currentUser.id);if(error)alert('Could not update task: '+error.message);await loadTasks()});el.querySelectorAll('[data-del-task]').forEach(x=>x.onclick=async()=>{const {error}=await db.from('family_tasks').delete().eq('id',x.dataset.delTask).eq('owner_id',currentUser.id);if(error)alert('Could not delete task: '+error.message);await loadTasks()});let done=state.tasks.filter(t=>t.is_completed).length;document.getElementById('taskCount').textContent=done+' of '+state.tasks.length+' done'}
 function renderMeals(){const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];document.getElementById('meals').innerHTML=days.map((d,i)=>'<div class="meal"><div class="mealday">'+d+'</div><input aria-label="'+d+' meal" data-meal="'+i+'" value="'+esc(state.meals[i]||'')+'" placeholder="Plan dinner…"></div>').join('');document.querySelectorAll('[data-meal]').forEach(x=>x.onchange=()=>{state.meals[+x.dataset.meal]=x.value;save()})}
 function renderShopping(){const el=document.getElementById('shopping');el.innerHTML=state.shopping.length?state.shopping.map((s,i)=>'<div class="shopping-item '+(s.checked?'checked':'')+'"><input type="checkbox" data-shop="'+i+'" '+(s.checked?'checked':'')+'><label>'+esc(s.text)+'</label><button class="linkbtn" data-del-shop="'+i+'" aria-label="Delete item">×</button></div>').join(''):'<div class="empty">Your shopping list is empty.</div>';el.querySelectorAll('[data-shop]').forEach(x=>x.onchange=()=>{state.shopping[+x.dataset.shop].checked=x.checked;save();renderShopping()});el.querySelectorAll('[data-del-shop]').forEach(x=>x.onclick=()=>{state.shopping.splice(+x.dataset.delShop,1);save();renderShopping()})}
 function render(){renderPeople();renderAgenda();renderTasks();renderMeals();renderShopping();document.getElementById('notes').value=state.notes||''}
-function addTask(){let x=document.getElementById('taskInput'),v=x.value.trim();if(!v)return;state.tasks.push({text:v,done:false,who:'Home'});x.value='';save();renderTasks()}
+async function addTask(){let x=document.getElementById('taskInput'),v=x.value.trim();if(!v)return;const child=document.getElementById('taskChild').value;const {error}=await db.from('family_tasks').insert({owner_id:currentUser.id,child,title:v,is_completed:false});if(error){alert('Could not add task: '+error.message);return}x.value='';await loadTasks()}
 function addShop(){let x=document.getElementById('shopInput'),v=x.value.trim();if(!v)return;state.shopping.push({text:v,checked:false});x.value='';save();renderShopping()}
 document.getElementById('addTask').onclick=addTask;document.getElementById('taskInput').addEventListener('keydown',e=>{if(e.key==='Enter')addTask()});document.getElementById('addShop').onclick=addShop;document.getElementById('shopInput').addEventListener('keydown',e=>{if(e.key==='Enter')addShop()});
 document.getElementById('addEvent').onclick=()=>{let time=prompt('What time? (e.g. 4:00 PM)','4:00 PM');if(time===null)return;let text=prompt('What is happening?');if(!text||!text.trim())return;let who=prompt('Who is it for?','Family')||'Family';state.events.push({time:time.trim(),text:text.trim(),who:who.trim()});state.events.sort((a,b)=>a.time.localeCompare(b.time));save();renderAgenda()};
@@ -90,4 +100,15 @@ tick();setInterval(tick,30000);render();
 async function weather(){try{let r=await fetch('https://api.open-meteo.com/v1/forecast?latitude=42.3149&longitude=-83.0364&current=temperature_2m,weather_code&temperature_unit=celsius');let d=await r.json(),t=Math.round(d.current.temperature_2m),c=d.current.weather_code;let desc=c===0?'Clear sky':c<=3?'Partly cloudy':c<=48?'Foggy':c<=67?'Rain':c<=77?'Snow':c<=82?'Showers':c<=86?'Snow showers':'Thunderstorms';let icon=c===0?'☀️':c<=3?'🌤️':c<=48?'🌫️':c<=67?'🌧️':c<=77?'❄️':c<=82?'🌦️':c<=86?'🌨️':'⛈️';document.getElementById('temp').textContent=t+'°C';document.getElementById('weatherIcon').textContent=icon;document.getElementById('weatherText').textContent=desc+' · Windsor'}catch(e){document.getElementById('weatherText').textContent='Windsor weather unavailable'}}
 weather();
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const dbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+db=dbClient;
+async function loadTasks(){if(!currentUser)return;const {data,error}=await db.from('family_tasks').select('id,title,is_completed,child').eq('owner_id',currentUser.id).in('child',['Evangeline','Lorenzo']).order('created_at',{ascending:true});if(error){console.error(error);document.getElementById('tasks').innerHTML='<div class="empty">Could not load tasks: '+esc(error.message)+'</div>';return}state.tasks=data||[];renderTasks()}
+document.getElementById('loginForm').addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;button.textContent='Signing in…';document.getElementById('loginError').textContent='';const {data,error}=await db.auth.signInWithPassword({email:document.getElementById('loginEmail').value.trim(),password:document.getElementById('loginPassword').value});button.disabled=false;button.textContent='Sign In';if(error){document.getElementById('loginError').textContent=error.message;return}currentUser=data.user;document.getElementById('loginGate').style.display='none';await loadTasks()});
+(async()=>{const {data}=await db.auth.getSession();if(data.session){currentUser=data.session.user;document.getElementById('loginGate').style.display='none';await loadTasks()}})();
+setInterval(()=>{if(currentUser)loadTasks()},15000);
+</script>
+
 </body></html>
