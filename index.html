@@ -51,6 +51,20 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
 .deal-search{border:0;border-radius:10px;background:#557565;color:white;padding:9px 12px;font-size:11px;font-weight:800;white-space:nowrap}
 .deal-flyers{display:inline-block;margin:0 0 12px;color:#557565;font-size:12px;font-weight:800;text-decoration:underline}
 
+
+.print-shopping{display:none}
+@media print{
+ @page{margin:16mm}
+ body{background:#fff!important;color:#111!important}
+ body *{visibility:hidden!important}
+ #printShoppingList,#printShoppingList *{visibility:visible!important}
+ #printShoppingList{display:block!important;position:absolute;left:0;top:0;width:100%;font-family:Arial,sans-serif}
+ #printShoppingList h1{font-size:22pt;margin:0 0 5mm}
+ #printShoppingList .print-date{font-size:10pt;color:#555;margin-bottom:8mm}
+ #printShoppingList ul{padding:0;list-style:none}
+ #printShoppingList li{font-size:14pt;padding:3mm 0;border-bottom:1px solid #ddd}
+ #printShoppingList li:before{content:"☐ ";font-size:16pt;margin-right:3mm}
+}
 </style>
 </head>
 <body>
@@ -84,7 +98,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
   <div class="meals" id="meals"></div>
  </section>
  <section class="card">
-  <div class="cardhead"><div class="cardtitle"><span class="ico">🛒</span> Shopping List</div><button class="linkbtn" id="clearShopping">Clear checked</button></div>
+  <div class="cardhead"><div class="cardtitle"><span class="ico">🛒</span> Shopping List</div><div style="display:flex;gap:6px;align-items:center"><button class="linkbtn" id="printShopping" type="button">🖨️ Print list</button><button class="linkbtn" id="clearShopping">Clear checked</button></div></div>
   <div class="shopping-list" id="shopping"></div>
   <div class="addrow"><input id="shopInput" placeholder="Add something to buy…" maxlength="70"><button class="addbtn" id="addShop" aria-label="Add shopping item">+</button></div>
   <button class="deal-button" id="findDeals" type="button">🔎 Find the Deals</button>
@@ -154,7 +168,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
   <div id="evaApprovedMusicList" style="margin-top:12px"><div class="empty">Loading approved music…</div></div>
  </section>
  </div>
-</main><footer class="footer"><span>THE FAMILY HUB · Made for our home</span><span>Tasks sync across family devices</span></footer>
+</main><div class="print-shopping" id="printShoppingList"></div><footer class="footer"><span>THE FAMILY HUB · Made for our home</span><span>Tasks sync across family devices</span></footer>
 </div>
 <script>
 const KEY='the_family_hub_v1';
@@ -182,6 +196,12 @@ function renderMeals(){const days=['Monday','Tuesday','Wednesday','Thursday','Fr
 function renderShopping(){const el=document.getElementById('shopping');el.innerHTML=state.shopping.length?state.shopping.map((s,i)=>'<div class="shopping-item '+(s.checked?'checked':'')+'"><input type="checkbox" data-shop="'+i+'" '+(s.checked?'checked':'')+'><label>'+esc(s.text)+'</label><button class="linkbtn" data-del-shop="'+i+'" aria-label="Delete item">×</button></div>').join(''):'<div class="empty">Your shopping list is empty.</div>';el.querySelectorAll('[data-shop]').forEach(x=>x.onchange=()=>{state.shopping[+x.dataset.shop].checked=x.checked;save();renderShopping()});el.querySelectorAll('[data-del-shop]').forEach(x=>x.onclick=()=>{state.shopping.splice(+x.dataset.delShop,1);save();renderShopping()})}
 function render(){renderPeople();renderAgenda();renderDailySchedule();renderTasks();renderMeals();renderShopping();document.getElementById('notes').value=state.notes||''}
 async function addTask(){let x=document.getElementById('taskInput'),v=x.value.trim();if(!v)return;const child=document.getElementById('taskChild').value;const {error}=await db.from('family_tasks').insert({owner_id:currentUser.id,child,title:v,is_completed:false});if(error){alert('Could not add task: '+error.message);return}x.value='';await loadTasks()}
+function printShoppingList(){
+ const items=state.shopping.filter(item=>!item.checked);
+ const area=document.getElementById('printShoppingList');
+ area.innerHTML='<h1>Grocery Shopping List</h1><div class="print-date">'+esc(new Date().toLocaleDateString([],{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+'</div>'+(items.length?'<ul>'+items.map(item=>'<li>'+esc(item.text)+'</li>').join('')+'</ul>':'<p>Your grocery list is empty.</p>');
+ window.print();
+}
 function addShop(){let x=document.getElementById('shopInput'),v=x.value.trim();if(!v)return;state.shopping.push({text:v,checked:false});x.value='';save();renderShopping()}
 function renderDealItems(){
  const el=document.getElementById('dealItems');
@@ -199,6 +219,7 @@ function openDealFinder(){renderDealItems();document.getElementById('dealOverlay
 function closeDealFinder(){document.getElementById('dealOverlay').classList.remove('open')}
 
 document.getElementById('addTask').onclick=addTask;document.getElementById('taskInput').addEventListener('keydown',e=>{if(e.key==='Enter')addTask()});document.getElementById('addShop').onclick=addShop;
+document.getElementById('printShopping').onclick=printShoppingList;
 document.getElementById('findDeals').onclick=openDealFinder;
 document.getElementById('closeDeals').onclick=closeDealFinder;
 document.getElementById('dealOverlay').addEventListener('click',e=>{if(e.target.id==='dealOverlay')closeDealFinder()});
