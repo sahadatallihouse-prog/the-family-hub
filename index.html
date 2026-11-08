@@ -83,9 +83,9 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
  </section>
  <section class="card video-manager">
   <div class="cardhead"><div class="cardtitle"><span class="ico">🎬</span> Evangeline's Video Library</div><span class="subtle">Parent-approved videos</span></div>
-  <p class="subtle">Add a video to Evangeline's Videos library. Choose the dates it should be available.</p>
+  <p class="subtle">Add a video to one of Evangeline's three categories: Cooking, Crafts, or Flowers. Choose the dates it should be available.</p>
   <div class="video-form">
-   <select id="evaVideoCategory"><option value="Videos">Videos</option></select>
+   <select id="evaVideoCategory"><option value="Cooking">Cooking</option><option value="Crafts">Crafts</option><option value="Flowers">Flowers</option></select>
    <input id="evaVideoTitle" maxlength="100" placeholder="Video title">
    <input id="evaVideoUrl" type="url" placeholder="Paste video URL">
    <input id="evaVideoFrom" type="date" aria-label="Available from">
@@ -188,11 +188,11 @@ document.getElementById('addVideo').addEventListener('click',async()=>{
 async function loadEvangelineVideos(){
  if(!currentUser||!db)return;
  const el=document.getElementById('evaApprovedVideoList');
- const {data,error}=await db.from('approved_videos').select('id,category,title,video_url,available_from,available_until,is_active').eq('owner_id',currentUser.id).eq('category','Videos').order('created_at',{ascending:false});
+ const {data,error}=await db.from('approved_videos').select('id,category,title,video_url,available_from,available_until,is_active').eq('owner_id',currentUser.id).in('category',['Cooking','Crafts','Flowers']).order('created_at',{ascending:false});
  if(error){el.textContent='Could not load videos: '+error.message;return}
  el.innerHTML=(data||[]).length?(data||[]).map(v=>'<div class="video-row"><strong>'+esc(v.category)+' · '+esc(v.title)+'</strong><small>'+(v.is_active?'Active':'Paused')+' · '+esc(v.available_from)+(v.available_until?' to '+esc(v.available_until):'')+'</small><button type="button" data-video-toggle="'+v.id+'" data-active="'+v.is_active+'">'+(v.is_active?'Pause':'Activate')+'</button><button type="button" data-video-delete="'+v.id+'">Delete</button></div>').join(''):'<div class="empty">No approved videos yet. Add the first one above.</div>';
- el.querySelectorAll('[data-video-toggle]').forEach(b=>b.onclick=async()=>{const {error}=await db.from('approved_videos').update({is_active:b.dataset.active!=='true'}).eq('id',b.dataset.videoToggle).eq('owner_id',currentUser.id).eq('category','Videos');if(error)alert(error.message);else loadEvangelineVideos()});
- el.querySelectorAll('[data-video-delete]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this approved video?'))return;const {error}=await db.from('approved_videos').delete().eq('id',b.dataset.videoDelete).eq('owner_id',currentUser.id);if(error)alert(error.message);else loadEvangelineVideos()});
+ el.querySelectorAll('[data-video-toggle]').forEach(b=>b.onclick=async()=>{const {error}=await db.from('approved_videos').update({is_active:b.dataset.active!=='true'}).eq('id',b.dataset.videoToggle).eq('owner_id',currentUser.id).in('category',['Cooking','Crafts','Flowers']);if(error)alert(error.message);else loadEvangelineVideos()});
+ el.querySelectorAll('[data-video-delete]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this approved video?'))return;const {error}=await db.from('approved_videos').delete().eq('id',b.dataset.videoDelete).eq('owner_id',currentUser.id).in('category',['Cooking','Crafts','Flowers']);if(error)alert(error.message);else loadEvangelineVideos()});
 }
 document.getElementById('evaAddVideo').addEventListener('click',async()=>{
  const category=document.getElementById('evaVideoCategory').value,title=document.getElementById('evaVideoTitle').value.trim(),video_url=document.getElementById('evaVideoUrl').value.trim(),available_from=document.getElementById('evaVideoFrom').value||new Date().toISOString().slice(0,10),available_until=document.getElementById('evaVideoUntil').value||null;
