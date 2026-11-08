@@ -94,7 +94,19 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
   </div>
   <div class="subtle">Leave the end date blank for no expiry. Only add links you've checked and approved.</div>
   <div id="evaApprovedVideoList" style="margin-top:12px"><div class="empty">Loading approved videos…</div></div>
- </section></main>
+ </section>
+ <section class="card video-manager">
+  <div class="cardhead"><div class="cardtitle"><span class="ico">🎵</span> Lorenzo's Music Library</div><span class="subtle">Parent-approved music</span></div>
+  <p class="subtle">Add direct MP3, M4A, or OGG audio links for Lorenzo's Sound Lab.</p>
+  <div class="video-form" style="grid-template-columns:1.2fr 2fr auto">
+   <input id="musicTitle" maxlength="100" placeholder="Song or track title">
+   <input id="musicUrl" type="url" placeholder="Paste direct audio URL">
+   <button class="addbtn" id="addMusic" type="button">+</button>
+  </div>
+  <div class="subtle">Use a direct audio-file link. Spotify, Amazon Music, and ordinary YouTube links generally cannot play in the embedded player.</div>
+  <div id="approvedMusicList" style="margin-top:12px"><div class="empty">Loading approved music…</div></div>
+ </section>
+</main>
 <footer class="footer"><span>THE FAMILY HUB · Made for our home</span><span>Tasks sync across family devices</span></footer>
 </div>
 <script>
@@ -184,4 +196,24 @@ document.getElementById('evaAddVideo').addEventListener('click',async()=>{
 });
 const oldLoadTasks=loadTasks;
 loadTasks=async function(){await oldLoadTasks();await loadEvangelineVideos()};
+</script><script>
+async function loadApprovedMusic(){
+ if(!currentUser||!db)return;
+ const el=document.getElementById('approvedMusicList');
+ const {data,error}=await db.from('approved_music').select('id,title,audio_url,is_active').eq('owner_id',currentUser.id).order('created_at',{ascending:false});
+ if(error){el.textContent='Could not load music: '+error.message;return}
+ el.innerHTML=(data||[]).length?(data||[]).map(v=>'<div class="video-row"><strong>'+esc(v.title)+'</strong><small>'+(v.is_active?'Active':'Paused')+'</small><button type="button" data-music-toggle="'+v.id+'" data-active="'+v.is_active+'">'+(v.is_active?'Pause':'Activate')+'</button><button type="button" data-music-delete="'+v.id+'">Delete</button></div>').join(''):'<div class="empty">No music added yet. Add the first track above.</div>';
+ el.querySelectorAll('[data-music-toggle]').forEach(b=>b.onclick=async()=>{const {error}=await db.from('approved_music').update({is_active:b.dataset.active!=='true'}).eq('id',b.dataset.musicToggle).eq('owner_id',currentUser.id);if(error)alert(error.message);else loadApprovedMusic()});
+ el.querySelectorAll('[data-music-delete]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this music link?'))return;const {error}=await db.from('approved_music').delete().eq('id',b.dataset.musicDelete).eq('owner_id',currentUser.id);if(error)alert(error.message);else loadApprovedMusic()});
+}
+document.getElementById('addMusic').addEventListener('click',async()=>{
+ const title=document.getElementById('musicTitle').value.trim(),audio_url=document.getElementById('musicUrl').value.trim();
+ if(!title||!audio_url){alert('Enter a title and direct audio URL.');return}
+ try{const u=new URL(audio_url);if(!['http:','https:'].includes(u.protocol))throw new Error()}catch(e){alert('Please enter a valid http or https audio link.');return}
+ const {error}=await db.from('approved_music').insert({owner_id:currentUser.id,title,audio_url,is_active:true});
+ if(error){alert('Could not save music: '+error.message);return}
+ document.getElementById('musicTitle').value='';document.getElementById('musicUrl').value='';await loadApprovedMusic();
+});
+const previousLoadTasks=loadTasks;
+loadTasks=async function(){await previousLoadTasks();await loadApprovedMusic()};
 </script></body></html>
