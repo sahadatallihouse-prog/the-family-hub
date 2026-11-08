@@ -71,7 +71,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
   <div class="cardhead"><div class="cardtitle"><span class="ico">🎬</span> Lorenzo's Video Library</div><span class="subtle">Parent-approved videos</span></div>
   <p class="subtle">Add a video to one of Lorenzo's three Explorer categories. Choose the dates it should be available.</p>
   <div class="video-form">
-   <select id="videoCategory"><option>Ocean Videos</option><option>Heavy Machines</option><option>Vehicle Zone</option><option>Videos</option><option>Movies</option></select>
+   <select id="videoCategory"><option>Ocean Videos</option><option>Heavy Machines</option><option>Vehicle Zone</option></select>
    <input id="videoTitle" maxlength="100" placeholder="Video title">
    <input id="videoUrl" type="url" placeholder="Paste video URL">
    <input id="videoFrom" type="date" aria-label="Available from">
@@ -80,6 +80,20 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
   </div>
   <div class="subtle">Leave the end date blank for no expiry. Only add links you've checked and approved.</div>
   <div id="approvedVideoList" style="margin-top:12px"><div class="empty">Loading approved videos…</div></div>
+ </section>
+ <section class="card video-manager">
+  <div class="cardhead"><div class="cardtitle"><span class="ico">🎬</span> Evangeline's Video Library</div><span class="subtle">Parent-approved videos</span></div>
+  <p class="subtle">Add a video to one of Evangeline's Videos and Movies. Choose the dates it should be available.</p>
+  <div class="video-form">
+   <select id="evaVideoCategory"></select>
+   <input id="evaVideoTitle" maxlength="100" placeholder="Video title">
+   <input id="evaVideoUrl" type="url" placeholder="Paste video URL">
+   <input id="evaVideoFrom" type="date" aria-label="Available from">
+   <input id="evaVideoUntil" type="date" aria-label="Available until">
+   <button class="addbtn" id="evaAddVideo" type="button">+</button>
+  </div>
+  <div class="subtle">Leave the end date blank for no expiry. Only add links you've checked and approved.</div>
+  <div id="evaApprovedVideoList" style="margin-top:12px"><div class="empty">Loading approved videos…</div></div>
  </section></main>
 <footer class="footer"><span>THE FAMILY HUB · Made for our home</span><span>Tasks sync across family devices</span></footer>
 </div>
@@ -148,4 +162,26 @@ document.getElementById('addVideo').addEventListener('click',async()=>{
 });
 const oldLoadTasks=loadTasks;
 loadTasks=async function(){await oldLoadTasks();await loadApprovedVideos()};
+</script>
+<script>
+async function loadEvangelineVideos(){
+ if(!currentUser||!db)return;
+ const el=document.getElementById('evaApprovedVideoList');
+ const {data,error}=await db.from('approved_videos').select('id,category,title,video_url,available_from,available_until,is_active').eq('owner_id',currentUser.id).order('created_at',{ascending:false});
+ if(error){el.textContent='Could not load videos: '+error.message;return}
+ el.innerHTML=(data||[]).length?(data||[]).map(v=>'<div class="video-row"><strong>'+esc(v.category)+' · '+esc(v.title)+'</strong><small>'+(v.is_active?'Active':'Paused')+' · '+esc(v.available_from)+(v.available_until?' to '+esc(v.available_until):'')+'</small><button type="button" data-video-toggle="'+v.id+'" data-active="'+v.is_active+'">'+(v.is_active?'Pause':'Activate')+'</button><button type="button" data-video-delete="'+v.id+'">Delete</button></div>').join(''):'<div class="empty">No approved videos yet. Add the first one above.</div>';
+ el.querySelectorAll('[data-video-toggle]').forEach(b=>b.onclick=async()=>{const {error}=await db.from('approved_videos').update({is_active:b.dataset.active!=='true'}).eq('id',b.dataset.videoToggle).eq('owner_id',currentUser.id);if(error)alert(error.message);else loadEvangelineVideos()});
+ el.querySelectorAll('[data-video-delete]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this approved video?'))return;const {error}=await db.from('approved_videos').delete().eq('id',b.dataset.videoDelete).eq('owner_id',currentUser.id);if(error)alert(error.message);else loadEvangelineVideos()});
+}
+document.getElementById('evaAddVideo').addEventListener('click',async()=>{
+ const category=document.getElementById('evaVideoCategory').value,title=document.getElementById('evaVideoTitle').value.trim(),video_url=document.getElementById('evaVideoUrl').value.trim(),available_from=document.getElementById('evaVideoFrom').value||new Date().toISOString().slice(0,10),available_until=document.getElementById('evaVideoUntil').value||null;
+ if(!title||!video_url){alert('Enter a title and video URL.');return}
+ try{const u=new URL(video_url);if(!['http:','https:'].includes(u.protocol))throw new Error()}catch(e){alert('Please enter a valid http or https video link.');return}
+ if(available_until&&available_until<available_from){alert('End date must be on or after the start date.');return}
+ const {error}=await db.from('approved_videos').insert({owner_id:currentUser.id,category,title,video_url,available_from,available_until,is_active:true});
+ if(error){alert('Could not save video: '+error.message);return}
+ document.getElementById('evaVideoTitle').value='';document.getElementById('evaVideoUrl').value='';document.getElementById('evaVideoUntil').value='';await loadEvangelineVideos();
+});
+const oldLoadTasks=loadTasks;
+loadTasks=async function(){await oldLoadTasks();await loadEvangelineVideos()};
 </script></body></html>
