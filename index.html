@@ -65,6 +65,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
  #printShoppingList li{font-size:14pt;padding:3mm 0;border-bottom:1px solid #ddd}
  #printShoppingList li:before{content:"☐ ";font-size:16pt;margin-right:3mm}
 }
+
+.timer-parent-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.timer-parent-card{background:#f8f8f3;border:1px solid var(--line);border-radius:14px;padding:13px;display:grid;gap:9px}.timer-parent-card>strong{font-size:15px}.timer-parent-controls{display:flex;gap:7px}.timer-parent-controls select,.timer-label-input,.timer-parent-controls input{min-width:0;width:100%;border:1px solid var(--line);border-radius:9px;padding:9px;background:white;font-size:12px}.timer-parent-status{font-size:13px;font-weight:800;color:var(--green);font-variant-numeric:tabular-nums}.timer-parent-actions{display:flex;gap:6px;flex-wrap:wrap}.timer-parent-actions button{border:0;border-radius:9px;padding:9px 11px;background:var(--green);color:#fff;font-size:11px;font-weight:800}.timer-parent-actions button[data-timer-stop]{background:#e9e8e1;color:var(--ink)}@media(max-width:650px){.timer-parent-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -167,6 +169,25 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
   <div class="subtle">Use a direct audio-file link. Spotify, Amazon Music, and ordinary YouTube links generally cannot play in the embedded player.</div>
   <div id="evaApprovedMusicList" style="margin-top:12px"><div class="empty">Loading approved music…</div></div>
  </section>
+<section class="card video-manager" id="childTimerManager">
+  <div class="cardhead"><div class="cardtitle"><span class="ico">⏱️</span> Individual Kids' Timers</div><span class="subtle">Each child has their own timer</span></div>
+  <p class="subtle">Set a focus session or break. The selected child's tablet will display the countdown and alert when time is up.</p>
+  <div class="timer-parent-grid">
+   <div class="timer-parent-card" data-parent-timer="Lorenzo">
+    <strong>Lorenzo</strong>
+    <div class="timer-parent-controls"><select id="LorenzoTimerDuration" aria-label="Lorenzo timer duration"><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1500" selected>25 minutes</option><option value="custom">Custom</option></select><input id="LorenzoTimerCustom" type="number" min="1" max="180" placeholder="Minutes" aria-label="Custom minutes" hidden></div>
+    <input id="LorenzoTimerLabel" class="timer-label-input" maxlength="35" value="Focus Time" aria-label="Lorenzo timer label">
+    <div class="timer-parent-status" id="LorenzoTimerStatus">No active timer</div>
+    <div class="timer-parent-actions"><button type="button" data-timer-start="Lorenzo">Start</button><button type="button" data-timer-pause="Lorenzo">Pause</button><button type="button" data-timer-resume="Lorenzo">Resume</button><button type="button" data-timer-stop="Lorenzo">Reset</button></div>
+   </div><div class="timer-parent-card" data-parent-timer="Evangeline">
+    <strong>Evangeline</strong>
+    <div class="timer-parent-controls"><select id="EvangelineTimerDuration" aria-label="Evangeline timer duration"><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1500" selected>25 minutes</option><option value="custom">Custom</option></select><input id="EvangelineTimerCustom" type="number" min="1" max="180" placeholder="Minutes" aria-label="Custom minutes" hidden></div>
+    <input id="EvangelineTimerLabel" class="timer-label-input" maxlength="35" value="Focus Time" aria-label="Evangeline timer label">
+    <div class="timer-parent-status" id="EvangelineTimerStatus">No active timer</div>
+    <div class="timer-parent-actions"><button type="button" data-timer-start="Evangeline">Start</button><button type="button" data-timer-pause="Evangeline">Pause</button><button type="button" data-timer-resume="Evangeline">Resume</button><button type="button" data-timer-stop="Evangeline">Reset</button></div>
+   </div>
+  </div>
+ </section>
  </div>
 </main><div class="print-shopping" id="printShoppingList"></div><footer class="footer"><span>THE FAMILY HUB · Made for our home</span><span>Tasks sync across family devices</span></footer>
 </div>
@@ -245,7 +266,7 @@ db=dbClient;
 async function loadTasks(){if(!currentUser)return;const {data,error}=await db.from('family_tasks').select('id,title,is_completed,child').eq('owner_id',currentUser.id).in('child',['Evangeline','Lorenzo']).order('created_at',{ascending:true});if(error){console.error(error);document.getElementById('tasks').innerHTML='<div class="empty">Could not load tasks: '+esc(error.message)+'</div>';return}state.tasks=data||[];renderTasks()}
 document.getElementById('loginForm').addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;button.textContent='Signing in…';document.getElementById('loginError').textContent='';const {data,error}=await db.auth.signInWithPassword({email:document.getElementById('loginEmail').value.trim(),password:document.getElementById('loginPassword').value});button.disabled=false;button.textContent='Sign In';if(error){document.getElementById('loginError').textContent=error.message;return}currentUser=data.user;document.getElementById('loginGate').style.display='none';await loadFamilyContent()});
 (async()=>{const {data}=await db.auth.getSession();if(data.session){currentUser=data.session.user;document.getElementById('loginGate').style.display='none';await loadFamilyContent()}})();
-setInterval(()=>{if(currentUser)loadFamilyContent()},15000);
+setInterval(()=>{if(currentUser){loadFamilyContent();loadChildTimers()}},5000);
 </script>
 
 
@@ -325,9 +346,54 @@ document.getElementById('evaAddMusic').addEventListener('click',async()=>{
  document.getElementById('evaMusicTitle').value='';document.getElementById('evaMusicUrl').value='';await loadEvangelineMusic();
 });
 
+
+async function loadChildTimers(){
+ if(!currentUser||!db)return;
+ const {data,error}=await db.from('child_timers').select('*').in('child',['Lorenzo','Evangeline']);
+ if(error){console.error('Timer load failed',error);return}
+ (data||[]).forEach(t=>{
+  const el=document.getElementById(t.child+'TimerStatus');if(!el)return;
+  if(t.status==='stopped')el.textContent='No active timer';
+  else if(t.status==='paused')el.textContent=(t.label||'Timer')+' · Paused · '+formatTimer(t.paused_remaining_seconds||0);
+  else {const left=Math.max(0,Math.ceil((new Date(t.ends_at).getTime()-Date.now())/1000));el.textContent=(t.label||'Timer')+' · '+formatTimer(left)+(left===0?' · Time is up':'');}
+ });
+}
+function formatTimer(seconds){seconds=Math.max(0,Number(seconds)||0);return String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0')}
+async function saveChildTimer(child,fields){
+ const {data,error}=await db.from('child_timers').upsert({child,owner_id:currentUser.id,...fields,updated_at:new Date().toISOString()},{onConflict:'child'});
+ if(error){alert('Could not update '+child+"'s timer: "+error.message);return false}
+ await loadChildTimers();return true;
+}
+document.querySelectorAll('[data-timer-start]').forEach(b=>b.onclick=async()=>{
+ const child=b.dataset.timerStart,choice=document.getElementById(child+'TimerDuration').value;
+ let seconds=Number(choice);
+ if(choice==='custom'){const minutes=Number(document.getElementById(child+'TimerCustom').value);if(!Number.isInteger(minutes)||minutes<1||minutes>180){alert('Enter a custom duration from 1 to 180 minutes.');return}seconds=minutes*60}
+ const label=document.getElementById(child+'TimerLabel').value.trim()||'Focus Time';
+ await saveChildTimer(child,{status:'running',duration_seconds:seconds,ends_at:new Date(Date.now()+seconds*1000).toISOString(),paused_remaining_seconds:null,label,run_id:crypto.randomUUID()});
+});
+document.querySelectorAll('[data-timer-pause]').forEach(b=>b.onclick=async()=>{
+ const child=b.dataset.timerPause,{data,error}=await db.from('child_timers').select('*').eq('child',child).maybeSingle();
+ if(error||!data||data.status!=='running')return;
+ const remaining=Math.max(0,Math.ceil((new Date(data.ends_at).getTime()-Date.now())/1000));
+ await saveChildTimer(child,{status:'paused',paused_remaining_seconds:remaining,ends_at:null});
+});
+document.querySelectorAll('[data-timer-resume]').forEach(b=>b.onclick=async()=>{
+ const child=b.dataset.timerResume,{data,error}=await db.from('child_timers').select('*').eq('child',child).maybeSingle();
+ if(error||!data||data.status!=='paused')return;
+ const remaining=Math.max(0,Number(data.paused_remaining_seconds)||0);
+ await saveChildTimer(child,{status:'running',ends_at:new Date(Date.now()+remaining*1000).toISOString(),paused_remaining_seconds:null});
+});
+document.querySelectorAll('[data-timer-stop]').forEach(b=>b.onclick=async()=>{
+ await saveChildTimer(b.dataset.timerStop,{status:'stopped',ends_at:null,paused_remaining_seconds:null,run_id:crypto.randomUUID()});
+});
+['Lorenzo','Evangeline'].forEach(child=>document.getElementById(child+'TimerDuration').addEventListener('change',e=>{
+ document.getElementById(child+'TimerCustom').hidden=e.target.value!=='custom';
+}));
+
 async function loadFamilyContent(){
  if(!currentUser||!db)return;
  await loadTasks();
+ await loadChildTimers();
  await Promise.all([loadApprovedVideos(),loadEvangelineVideos(),loadApprovedMusic(),loadEvangelineMusic()]);
 }
 document.getElementById('approvedToggle').addEventListener('click',()=>{const panel=document.getElementById('approvedPanel'),button=document.getElementById('approvedToggle'),arrow=document.getElementById('approvedArrow');const opening=panel.hidden;panel.hidden=!opening;button.setAttribute('aria-expanded',String(opening));arrow.textContent=opening?'▴':'▾';});
