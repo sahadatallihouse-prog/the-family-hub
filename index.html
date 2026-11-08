@@ -35,7 +35,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
 #loginError{color:#a33;font-size:12px;min-height:18px;margin-top:10px}
 
 
-.video-manager{grid-column:1/-1}.video-form{display:grid;grid-template-columns:1.1fr 1.2fr 1.6fr .9fr .9fr auto;gap:8px;margin:12px 0}.video-form input,.video-form select{min-width:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:white;font-size:12px}.video-row{display:flex;align-items:center;gap:10px;padding:10px;background:#f8f8f3;border-radius:12px;margin:7px 0;font-size:12px}.video-row strong{flex:1}.video-row small{color:var(--muted)}.video-row button{border:0;background:transparent;color:#8a554d;font-weight:800}@media(max-width:850px){.video-form{grid-template-columns:1fr 1fr}.video-form button{min-height:40px}}</style>
+.approved-toolbar{display:flex;justify-content:center;margin:0 0 16px}.approved-toggle{display:flex;align-items:center;gap:10px;border:1px solid #d7dfd5;background:#fffefa;color:var(--ink);border-radius:15px;padding:12px 20px;box-shadow:var(--shadow);font-weight:850;font-size:14px}.approved-toggle .approved-icon{width:30px;height:30px;border-radius:10px;background:var(--sage2);display:grid;place-items:center}.approved-toggle .approved-hint{font-size:11px;color:var(--muted);font-weight:600}.approved-toggle .approved-arrow{color:var(--green);font-size:16px;margin-left:4px}.approved-panel{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.approved-panel[hidden]{display:none}
+.video-manager{grid-column:1/-1}.video-form{display:grid;grid-template-columns:1.1fr 1.2fr 1.6fr .9fr .9fr auto;gap:8px;margin:12px 0}.video-form input,.video-form select{min-width:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:white;font-size:12px}.video-row{display:flex;align-items:center;gap:10px;padding:10px;background:#f8f8f3;border-radius:12px;margin:7px 0;font-size:12px}.video-row strong{flex:1}.video-row small{color:var(--muted)}.video-row button{border:0;background:transparent;color:#8a554d;font-weight:800}@media(max-width:850px){.video-form{grid-template-columns:1fr 1fr}.video-form button{min-height:40px}.approved-panel{grid-template-columns:1fr}}</style>
 </head>
 <body>
 <div id="loginGate"><div class="loginCard"><div style="font-size:42px">🏡</div><div class="eyebrow">One home · one team</div><h2>Family Hub Login</h2><p>Sign in with the family account to manage everyone's tasks.</p><form id="loginForm"><input id="loginEmail" type="email" placeholder="Email address" autocomplete="username" required><input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password" required><button type="submit">Sign In</button></form><div id="loginError"></div></div></div>
@@ -45,6 +46,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
  <div class="topright"><div class="clock"><div class="time" id="clock">--:--</div><div class="date" id="date">Loading date…</div></div><div class="weather"><div class="weathericon" id="weatherIcon">🌤️</div><div><div class="temp" id="temp">--°</div><small id="weatherText">Windsor, Ontario</small></div></div></div>
 </header>
 <section class="greeting"><div><div class="eyebrow">A fresh start together</div><h2 id="greeting">Good morning, family ☀️</h2><p>Here's what’s happening at home today. Let’s make it a great one.</p></div><div class="sun">🌿</div></section>
+<div class="approved-toolbar"><button class="approved-toggle" id="approvedToggle" type="button" aria-expanded="false" aria-controls="approvedPanel"><span class="approved-icon">🔒</span><span>Approved<br><span class="approved-hint">Parent-only video & music library</span></span><span class="approved-arrow" id="approvedArrow">▾</span></button></div>
 <main class="grid">
  <section class="card">
   <div class="cardhead"><div class="cardtitle"><span class="ico">👨‍👩‍👧‍👦</span> Our Family</div><button class="linkbtn" id="editPeople">Edit names</button></div>
@@ -67,6 +69,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
   <textarea class="notes" id="notes" placeholder="Leave a note for everyone…"></textarea>
  </section>
 
+ <div class="approved-panel" id="approvedPanel" hidden>
  <section class="card video-manager">
   <div class="cardhead"><div class="cardtitle"><span class="ico">🎬</span> Lorenzo's Video Library</div><span class="subtle">Parent-approved videos</span></div>
   <p class="subtle">Add a video to one of Lorenzo's three Explorer categories. Choose the dates it should be available.</p>
@@ -117,8 +120,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
   <div class="subtle">Use a direct audio-file link. Spotify, Amazon Music, and ordinary YouTube links generally cannot play in the embedded player.</div>
   <div id="evaApprovedMusicList" style="margin-top:12px"><div class="empty">Loading approved music…</div></div>
  </section>
-</main>
-<footer class="footer"><span>THE FAMILY HUB · Made for our home</span><span>Tasks sync across family devices</span></footer>
+ </div>
+</main>lass="footer"><span>THE FAMILY HUB · Made for our home</span><span>Tasks sync across family devices</span></footer>
 </div>
 <script>
 const KEY='the_family_hub_v1';
@@ -245,4 +248,5 @@ async function loadFamilyContent(){
  await loadTasks();
  await Promise.all([loadApprovedVideos(),loadEvangelineVideos(),loadApprovedMusic(),loadEvangelineMusic()]);
 }
+document.getElementById('approvedToggle').addEventListener('click',()=>{const panel=document.getElementById('approvedPanel'),button=document.getElementById('approvedToggle'),arrow=document.getElementById('approvedArrow');const opening=panel.hidden;panel.hidden=!opening;button.setAttribute('aria-expanded',String(opening));arrow.textContent=opening?'▴':'▾';});
 </script></body></html>
