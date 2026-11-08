@@ -439,7 +439,6 @@ async function saveExpense(category,amount,date,store,notes){if(!Number.isFinite
 document.getElementById('addGrocery').onclick=async()=>{const store=document.getElementById('groceryStore').value.trim();if(!store){alert('Enter the store name.');return}if(await saveExpense('Groceries',Number(document.getElementById('groceryAmount').value),document.getElementById('groceryDate').value,store,document.getElementById('groceryNotes').value.trim())){document.getElementById('groceryStore').value='';document.getElementById('groceryAmount').value='';document.getElementById('groceryNotes').value=''}};
 document.getElementById('addOtherExpense').onclick=async()=>{const v=document.getElementById('otherCategory').value,cat=v==='Custom'?document.getElementById('customCategory').value.trim():v;if(!cat){alert('Enter a category.');return}if(await saveExpense(cat,Number(document.getElementById('otherAmount').value),document.getElementById('otherDate').value,null,document.getElementById('otherNotes').value.trim())){document.getElementById('otherAmount').value='';document.getElementById('otherNotes').value=''}};
 
-<script>
 let secretLeafTaps=0,secretLeafTimer=null;
 document.querySelector('.greeting .sun').addEventListener('click',()=>{
  secretLeafTaps++;
@@ -480,5 +479,4 @@ async function buildMonthlyFamilyReport(){
  const cleanup=()=>{document.body.classList.remove('report-print');area.innerHTML='';window.removeEventListener('afterprint',cleanup)};
  window.addEventListener('afterprint',cleanup);window.print();
 }
-</script>
 </script></body></html>
