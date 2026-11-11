@@ -221,7 +221,40 @@ function timeToMinutes(value){const m=String(value||'').trim().match(/^(\d{1,2})
 function renderDailySchedule(){const selected=document.getElementById('scheduleDate').value||localDateKey(),dayEvents=state.events.map((e,i)=>({...e,_index:i})).filter(e=>(e.date||localDateKey())===selected);const entries=[...dailyRoutine.map(e=>({...e,routine:true})),...dayEvents].sort((a,b)=>timeToMinutes(a.time)-timeToMinutes(b.time));document.getElementById('scheduleHeading').textContent=prettyEventDate(selected)+(selected===localDateKey()?' · Today':'');const el=document.getElementById('dailySchedule');el.innerHTML=entries.map(e=>'<div class="agenda-item"><div class="agenda-time">'+esc(e.time)+'</div><div class="agenda-text">'+esc(e.text)+'</div><div class="agenda-who">'+esc(e.who||'Family')+'</div>'+(e.routine?'<span class="tag">Daily</span>':'<button class="linkbtn" data-daily-event="'+e._index+'" aria-label="Remove event">×</button>')+'</div>').join('');el.querySelectorAll('[data-daily-event]').forEach(b=>b.onclick=()=>{state.events.splice(+b.dataset.dailyEvent,1);save();renderAgenda();renderDailySchedule()})}
 function renderTasks(){const el=document.getElementById('tasks');el.innerHTML=state.tasks.length?state.tasks.map(t=>'<div class="task '+(t.is_completed?'done':'')+'"><input type="checkbox" data-task="'+esc(t.id)+'" '+(t.is_completed?'checked':'')+'><label>'+esc(t.title)+'</label><span class="tag">'+esc(t.child)+'</span><button class="linkbtn" data-del-task="'+esc(t.id)+'" aria-label="Delete task">×</button></div>').join(''):'<div class="empty">No shared tasks yet. Add one for Evangeline or Lorenzo.</div>';el.querySelectorAll('[data-task]').forEach(x=>x.onchange=async()=>{const task=state.tasks.find(t=>t.id===x.dataset.task);const completed=x.checked,stamp=completed?new Date().toISOString():null;const {error}=await db.from('family_tasks').update({is_completed:completed,completed_at:stamp}).eq('id',x.dataset.task).eq('owner_id',currentUser.id);if(error){alert('Could not update task: '+error.message);await loadTasks();return}const {error:he}=await db.from('family_task_history').insert({owner_id:currentUser.id,task_id:task.id,child:task.child,task_title:task.title,is_completed:completed});if(he)console.warn('Task history could not be recorded:',he.message);await loadTasks()});el.querySelectorAll('[data-del-task]').forEach(x=>x.onclick=async()=>{const {error}=await db.from('family_tasks').delete().eq('id',x.dataset.delTask).eq('owner_id',currentUser.id);if(error)alert('Could not delete task: '+error.message);await loadTasks()});let done=state.tasks.filter(t=>t.is_completed).length;document.getElementById('taskCount').textContent=done+' of '+state.tasks.length+' done'}
 function renderMeals(){const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];document.getElementById('meals').innerHTML=days.map((d,i)=>'<div class="meal"><div class="mealday">'+d+'</div><input aria-label="'+d+' meal" data-meal="'+i+'" value="'+esc(state.meals[i]||'')+'" placeholder="Plan dinner…"></div>').join('');document.querySelectorAll('[data-meal]').forEach(x=>x.onchange=()=>{state.meals[+x.dataset.meal]=x.value;save()})}
-function renderShopping(){const el=document.getElementById('shopping');el.innerHTML=state.shopping.length?state.shopping.map((s,i)=>'<div class="shopping-item '+(s.checked?'checked':'')+'"><input type="checkbox" data-shop="'+i+'" '+(s.checked?'checked':'')+'><label>'+esc(s.text)+'</label><button class="linkbtn" data-del-shop="'+i+'" aria-label="Delete item">×</button></div>').join(''):'<div class="empty">Your shopping list is empty.</div>';el.querySelectorAll('[data-shop]').forEach(x=>x.onchange=()=>{state.shopping[+x.dataset.shop].checked=x.checked;save();renderShopping()});el.querySelectorAll('[data-del-shop]').forEach(x=>x.onclick=()=>{state.shopping.splice(+x.dataset.delShop,1);save();renderShopping()})}
+async function loadShoppingList(){
+ if(!currentUser||!db)return;
+ const marker=KEY+'_shopping_cloud_migrated';
+ let {data,error}=await db.from('family_shopping_items').select('id,item,is_checked,created_at').eq('owner_id',currentUser.id).order('created_at',{ascending:true});
+ if(error){console.error('Could not load shopping list:',error.message);return}
+ if((data||[]).length===0&&localStorage.getItem(marker)!=='1'){
+  const saved=localStorage.getItem(KEY);
+  if(saved){try{const prior=JSON.parse(saved);if(Array.isArray(prior.shopping)&&prior.shopping.length){
+   const rows=prior.shopping.filter(x=>String(x.text||'').trim()).map(x=>({owner_id:currentUser.id,item:String(x.text).trim(),is_checked:!!x.checked}));
+   if(rows.length){const result=await db.from('family_shopping_items').insert(rows);if(result.error){console.error('Could not migrate local shopping list:',result.error.message);return}}
+  }}catch(e){console.warn('Could not migrate local shopping list:',e)}}
+ }
+ localStorage.setItem(marker,'1');
+ const refreshed=await db.from('family_shopping_items').select('id,item,is_checked,created_at').eq('owner_id',currentUser.id).order('created_at',{ascending:true});
+ if(refreshed.error){console.error('Could not refresh shopping list:',refreshed.error.message);return}
+ state.shopping=(refreshed.data||[]).map(x=>({id:x.id,text:x.item,checked:x.is_checked}));
+ renderShopping();
+}
+function renderShopping(){
+ const el=document.getElementById('shopping');
+ el.innerHTML=state.shopping.length?state.shopping.map((s,i)=>'<div class="shopping-item '+(s.checked?'checked':'')+'"><input type="checkbox" data-shop="'+i+'" '+(s.checked?'checked':'')+'><label>'+esc(s.text)+'</label><button class="linkbtn" data-del-shop="'+i+'" aria-label="Delete item">×</button></div>').join(''):'<div class="empty">Your shopping list is empty.</div>';
+ el.querySelectorAll('[data-shop]').forEach(x=>x.onchange=async()=>{
+  const item=state.shopping[+x.dataset.shop];if(!item)return;
+  const {error}=await db.from('family_shopping_items').update({is_checked:x.checked}).eq('id',item.id).eq('owner_id',currentUser.id);
+  if(error){alert('Could not update item: '+error.message);await loadShoppingList();return}
+  item.checked=x.checked;renderShopping();
+ });
+ el.querySelectorAll('[data-del-shop]').forEach(x=>x.onclick=async()=>{
+  const item=state.shopping[+x.dataset.delShop];if(!item)return;
+  const {error}=await db.from('family_shopping_items').delete().eq('id',item.id).eq('owner_id',currentUser.id);
+  if(error){alert('Could not delete item: '+error.message);return}
+  state.shopping=state.shopping.filter(y=>y.id!==item.id);renderShopping();
+ });
+}
 function render(){renderPeople();renderAgenda();renderDailySchedule();renderTasks();renderMeals();renderShopping();document.getElementById('notes').value=state.notes||''}
 async function addTask(){let x=document.getElementById('taskInput'),v=x.value.trim();if(!v)return;const child=document.getElementById('taskChild').value;const task_date=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);const {data,error}=await db.from('family_tasks').insert({owner_id:currentUser.id,child,title:v,is_completed:false,task_date,completed_at:null}).select('id,child,title').single();if(error){alert('Could not add task: '+error.message);return}const {error:he}=await db.from('family_task_history').insert({owner_id:currentUser.id,task_id:data.id,child,title:data.title,is_completed:false});if(he)console.warn('Task history could not be recorded:',he.message);x.value='';await loadTasks()}
 function printShoppingList(){
@@ -230,7 +263,7 @@ function printShoppingList(){
  area.innerHTML='<h1>Grocery Shopping List</h1><div class="print-date">'+esc(new Date().toLocaleDateString([],{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+'</div>'+(items.length?'<ul>'+items.map(item=>'<li>'+esc(item.text)+'</li>').join('')+'</ul>':'<p>Your grocery list is empty.</p>');
  window.print();
 }
-function addShop(){let x=document.getElementById('shopInput'),v=x.value.trim();if(!v)return;state.shopping.push({text:v,checked:false});x.value='';save();renderShopping()}
+async function addShop(){let x=document.getElementById('shopInput'),v=x.value.trim();if(!v)return;if(!currentUser||!db){alert('Please sign in first.');return}const {data,error}=await db.from('family_shopping_items').insert({owner_id:currentUser.id,item:v,is_checked:false}).select('id,item,is_checked').single();if(error){alert('Could not add item: '+error.message);return}state.shopping.push({id:data.id,text:data.item,checked:data.is_checked});x.value='';renderShopping()}
 function renderDealItems(){
  const el=document.getElementById('dealItems');
  const items=state.shopping.map((item,index)=>({...item,index})).filter(item=>!item.checked);
@@ -258,7 +291,7 @@ document.getElementById('scheduleDate').value=localDateKey();
 document.getElementById('scheduleDate').addEventListener('change',renderDailySchedule);
 document.getElementById('addEvent').onclick=()=>{const date=document.getElementById('eventDate').value||localDateKey();if(date<localDateKey()){alert('Please choose today or a future date.');return}let time=prompt('What time? (e.g. 4:00 PM)','4:00 PM');if(time===null)return;let text=prompt('What is happening?');if(!text||!text.trim())return;let who=prompt('Who is it for?','Family')||'Family';state.events.push({date,time:time.trim(),text:text.trim(),who:who.trim()});save();renderAgenda();renderDailySchedule()};
 document.getElementById('editPeople').onclick=()=>{state.people.forEach((p,i)=>{let n=prompt('Name for family card '+(i+1),p.name);if(n!==null&&n.trim())p.name=n.trim()});save();renderPeople()};
-document.getElementById('clearShopping').onclick=()=>{state.shopping=state.shopping.filter(x=>!x.checked);save();renderShopping()};
+document.getElementById('clearShopping').onclick=async()=>{const ids=state.shopping.filter(x=>x.checked).map(x=>x.id);if(!ids.length)return;const {error}=await db.from('family_shopping_items').delete().eq('owner_id',currentUser.id).in('id',ids);if(error){alert('Could not clear checked items: '+error.message);return}state.shopping=state.shopping.filter(x=>!x.checked);renderShopping()};
 document.getElementById('notes').addEventListener('input',e=>{state.notes=e.target.value;save()});
 function tick(){let now=new Date();document.getElementById('clock').textContent=now.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});document.getElementById('date').textContent=now.toLocaleDateString([],{weekday:'long',month:'long',day:'numeric',year:'numeric'});let h=now.getHours();document.getElementById('greeting').textContent=(h<12?'Good morning':h<17?'Good afternoon':'Good evening')+', family ☀️'}
 tick();setInterval(tick,30000);render();
@@ -401,7 +434,7 @@ async function loadFamilyContent(){
  if(!currentUser||!db)return;
  await loadTasks();
  await loadChildTimers();
- await Promise.all([loadApprovedVideos(),loadEvangelineVideos(),loadApprovedMusic(),loadEvangelineMusic()]);
+ await Promise.all([loadShoppingList(),loadApprovedVideos(),loadEvangelineVideos(),loadApprovedMusic(),loadEvangelineMusic()]);
 }
 document.getElementById('approvedToggle').addEventListener('click',()=>{const panel=document.getElementById('approvedPanel'),button=document.getElementById('approvedToggle'),arrow=document.getElementById('approvedArrow');const opening=panel.hidden;panel.hidden=!opening;button.setAttribute('aria-expanded',String(opening));arrow.textContent=opening?'▴':'▾';});
 const exMoney=v=>new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD'}).format(Number(v)||0);
